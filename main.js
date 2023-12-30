@@ -1,9 +1,8 @@
-const { Player } = require('discord-player');
-const { Client, Intents, Collection } = require('discord.js');
+const { Client, Intents, Permissions, MessageEmbed, Collection } = require('discord.js');
 const { readdirSync } = require('fs');
 
-//音楽🎶
-let client = new Client({
+// Discordクライアントの設定
+const client = new Client({
     intents: [
         Intents.FLAGS.GUILDS,
         Intents.FLAGS.GUILD_MEMBERS,
@@ -13,84 +12,33 @@ let client = new Client({
     disableMentions: 'everyone',
 });
 
+// コンフィグファイルの読み込み
 client.config = require('./config');
-client.player = new Player(client, client.config.opt.discordPlayer);
-client.commands = new Collection();
-const player = client.player
 
-const events = readdirSync('./events/').filter(file => file.endsWith('.js'));
-for (const file of events) {
-    const event = require(`./events/${file}`);
-    console.log(`-> Loaded event ${file.split('.')[0]}`);
-    client.on(file.split('.')[0], event.bind(null, client));
-    delete require.cache[require.resolve(`./events/${file}`)];
-};
-console.log(`-> Loaded commands...`);
+// コマンドの読み込み
+client.commands = new Collection();
 readdirSync('./commands/').forEach(dirs => {
     const commands = readdirSync(`./commands/${dirs}`).filter(files => files.endsWith('.js'));
     for (const file of commands) {
         const command = require(`./commands/${dirs}/${file}`);
-        console.log(`${command.name.toLowerCase()} Load Command!`);
         client.commands.set(command.name.toLowerCase(), command);
-        delete require.cache[require.resolve(`./commands/${dirs}/${file}`)];
     };
 });
 
-const { MessageEmbed } = require('discord.js');
-
-player.on('error', (queue, error) => {
-    console.log(`再生リストに問題が発生しました => ${error.message}`);
+// メッセージ削除機能
+client.on('messageCreate', async message => {
+    if (message.content === '!clear' && message.member.permissions.has(Permissions.FLAGS.ADMINISTRATOR)) {
+        try {
+            let fetched = await message.channel.messages.fetch({ limit: 100 });
+            await message.channel.bulkDelete(fetched);
+            console.log('Messages deleted');
+message.channel.send('All messages have been deleted.\nメッセージがすべて削除されました。');
+        } catch (error) {
+            console.error('Error in message deletion: ', error);
+            message.channel.send('メッセージの削除中にエラーが発生しました。');
+        }
+    }
 });
 
-player.on('connectionError', (queue, error) => {
-    console.log(`I'm having trouble connecting => ${error.message}`);
-});
-
-player.on('trackStart', (queue, track) => {
-    if (!client.config.opt.loopMessage && queue.repeatMode !== 0) return;
-    const embed = new MessageEmbed();
-    embed.setColor('RANDOM');
-    embed.setDescription(`**${track.title}**を__**${queue.connection.channel.name}**__で再生します🎧`);
-    queue.metadata.send({ embeds: [embed] });
-});
-
-player.on('trackAdd', (queue, track) => {
-const embed = new MessageEmbed();
-    embed.setColor('GREEN');
-    embed.setDescription(`**${track.title}** プレイリストに追加しました ✅`);
-    queue.metadata.send({ embeds: [embed] });
-});
-
-player.on('botDisconnect', (queue) => {
-    queue.metadata.send('誰かにボイスチャンネルから追い出されたため、プレイリストがすべて消去されました ❌');
-});
-
-player.on('channelEmpty', (queue) => {
-    queue.metadata.send('誰も居なくなったためボイスチャンネルから抜けました ❌')
-});
-
-player.on('queueEnd', (queue)=> {
-    queue.metadata.send('すべてのプレイリストを再生しました ✅');
-});
-
-const express = require("express");
-const app = express();
-const http = require("http");
-app.get("/", (request, response) => {
-  response.sendStatus(200);
-});
-app.listen(process.env.PORT);
-setInterval(() => {
-  http.get(`http://${process.env.PROJECT_DOMAIN}.glitch.me/`);
-}, 60000);
-
-if(process.env.TOKEN){
-client.login(process.env.TOKEN).catch(e => {
-console.log("The Bot Token You Entered Into Your Project Is Incorrect Or Your Bot's INTENTS Are OFF!")
-})
-} else {
-console.log("Please Write Your Bot Token Opposite The Token In The .env File In Your Project!")
-}
-
-
+// ボットのログイン
 client.login(process.env.TOKEN);
