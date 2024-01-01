@@ -35,7 +35,7 @@ client.on('messageCreate', async message => {
 message.channel.send('All messages have been deleted.\nメッセージがすべて削除されました。');
         } catch (error) {
             console.error('Error in message deletion: ', error);
-            message.channel.send('メッセージの削除中にエラーが発生しました。');
+            // エラーメッセージを出力してしまうと削除時にめんどくさいことになる
         }
     }
 });
